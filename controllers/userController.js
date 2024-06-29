@@ -9,13 +9,15 @@ const {
 exports.getAllUsers = async function (req, res) {
   try {
     let users = await mydb.getall(
-      "select id,username,phone,status,last_login from users"
+      `select u.id,u.username,u.phone,b.id branchId,b.branch_name,u.status,u.last_login from users u
+      left join branches b on u.branch_id = b.id`
     );
     res.json({
       success: true,
       users,
     });
   } catch (error) {
+    console.log(error);
     res.status(500).json({
       success: false,
       message: error,
@@ -43,7 +45,7 @@ exports.getUser = async function (req, res) {
 
 exports.createUser = async function (req, res) {
   try {
-    let { name, phone, password, confirmPassword } = req.body;
+    let { name, phone, branchId, password, confirmPassword } = req.body;
 
     let user = await mydb.getall(
       `select * from users where username='${name}'`
@@ -52,7 +54,9 @@ exports.createUser = async function (req, res) {
       return res.json({ success: false, message: "User name already exist" });
 
     await mydb.insert(
-      `insert into users values(null,'${name}','${phone}','${password}','${confirmPassword}','active',now(),now(),now())`
+      `insert into users values(null,'${name}','${phone}','${password}','${confirmPassword}',${parseInt(
+        branchId
+      )},'active',now(),now(),now())`
     );
     res.status(201).json({
       success: true,
@@ -70,17 +74,17 @@ exports.createUser = async function (req, res) {
 
 exports.updateUser = async function (req, res) {
   try {
-    const { name, phone } = req.body;
+    const { userId, name, phone, branchId } = req.body;
 
     let user = await mydb.getall(
-      `select * from users where id=${parseInt(req.params.id)}`
+      `select * from users where id=${parseInt(userId)}`
     );
     if (!user.length)
       return res.json({ success: false, message: "User Does not Exist" });
 
     await mydb.update(`update users set username='${name}',
-    phone='${phone}'
-     where id=${parseInt(req.params.id)}`);
+    phone='${phone}',branch_id=${parseInt(branchId)}
+     where id=${parseInt(userId)}`);
 
     res.status(201).json({
       success: true,
@@ -97,14 +101,15 @@ exports.updateUser = async function (req, res) {
 
 exports.deleteUser = async function (req, res) {
   try {
+    let { id } = req.body;
     let user = await mydb.getrow(
-      `select * from users where id=${parseInt(req.params.id)}`
+      `select * from users where id=${parseInt(id)}`
     );
 
     if (!user)
       return res.json({ success: false, message: "User does not Exist" });
 
-    await mydb.delete(`delete from users where id=${parseInt(req.params.id)}`);
+    await mydb.delete(`delete from users where id=${parseInt(id)}`);
 
     res.status(200).json({
       success: true,

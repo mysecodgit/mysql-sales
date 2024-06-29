@@ -1,4 +1,5 @@
 const Db = require("mysql2-async").default;
+require("dotenv").config();
 
 const mydb = new Db({
   database: process.env.DATABASE_NAME,
