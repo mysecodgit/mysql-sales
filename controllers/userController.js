@@ -6,6 +6,16 @@ const {
   TRANSACTION_STATUS,
 } = require("../utils/transactionUtils.js");
 
+const {
+  hashPassword,
+  generateAccessToken,
+  generateRefreshToken,
+  updateRefreshToken,
+  verifyToken,
+} = require("../utils/authUtils.js");
+
+const bcrypt = require("bcrypt");
+
 exports.getAllUsers = async function (req, res) {
   try {
     let users = await mydb.getall(
@@ -45,7 +55,9 @@ exports.getUser = async function (req, res) {
 
 exports.createUser = async function (req, res) {
   try {
-    let { name, phone, branchId, password, confirmPassword } = req.body;
+    let { name, phone, branchId, password } = req.body;
+
+    const hashedPassword = await hashPassword(password);
 
     let user = await mydb.getall(
       `select * from users where username='${name}'`
@@ -54,9 +66,9 @@ exports.createUser = async function (req, res) {
       return res.json({ success: false, message: "User name already exist" });
 
     await mydb.insert(
-      `insert into users values(null,'${name}','${phone}','${password}','${confirmPassword}',${parseInt(
+      `insert into users values(null,'${name}','${phone}','${hashedPassword}',${parseInt(
         branchId
-      )},'active',now(),now(),now())`
+      )},'active',null,null,now(),now())`
     );
     res.status(201).json({
       success: true,
@@ -129,13 +141,21 @@ exports.login = async function (req, res) {
     let { username, password } = req.body;
 
     let user = await mydb.getrow(
-      `select * from users where username='${username}' and password='${password}'`
+      `select * from users where username='${username}'`
     );
 
     if (!user)
       return res.json({
         success: false,
-        message: "user name or passord is incorrect",
+        message: "user name does not exist",
+      });
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid)
+      return res.json({
+        success: false,
+        message: "password is wrong.",
       });
 
     let userMenues = await mydb.getall(`
@@ -177,14 +197,82 @@ WHERE um.user_id = ${user.id} AND sm.isActive = true
       };
     });
 
+    const accessToken = generateAccessToken(user, updated);
+    const refreshToken = generateRefreshToken();
+    await updateRefreshToken(user.id, refreshToken);
+
     res.status(200).json({
       success: true,
       message: "Logged in successfully.",
-      user: {
-        id: user.id,
-        username: user.username,
-      },
-      menues: updated,
+      accessToken,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      success: false,
+      message: error,
+    });
+  }
+};
+
+exports.refreshAccessToken = async function (req, res) {
+  try {
+    let { userId } = req.body;
+
+    let user = await mydb.getrow(
+      `select * from users where id=${parseInt(userId)}`
+    );
+
+    if (!user)
+      return res.json({
+        success: false,
+        message: "user name does not exist",
+      });
+
+    let userMenues = await mydb.getall(`
+    SELECT* FROM user_menues um
+LEFT JOIN system_menu sm ON um.menu_id = sm.id
+WHERE um.user_id = ${user.id} AND sm.isActive = true
+    `);
+    let subMenues = await mydb.getall(
+      `
+      SELECT* FROM user_sub_menu usm
+      LEFT JOIN system_submenu ssm ON usm.sub_menu_id = ssm.id
+      WHERE usm.user_id = ${user.id} AND ssm.isActive = true
+      `
+    );
+
+    let actions = await mydb.getall(
+      `SELECT* FROM user_actions ua
+      LEFT JOIN system_actions sa ON ua.action_id = sa.id
+      WHERE ua.user_id = ${user.id} AND sa.isActive = true`
+    );
+
+    const updated = userMenues.map((menu) => {
+      let mappedSubMenue = subMenues.map((subMenu) => {
+        let filtredActions = actions.filter(
+          (action) => action.sub_menu_id == subMenu.id
+        );
+        return {
+          ...subMenu,
+          actions: filtredActions,
+        };
+      });
+      let filteredSubMenu = mappedSubMenue.filter(
+        (subm) => subm.menu_id == menu.id
+      );
+
+      return {
+        ...menu,
+        subMenues: filteredSubMenu,
+      };
+    });
+
+    const accessToken = generateAccessToken(user, updated);
+
+    res.status(200).json({
+      success: true,
+      accessToken,
     });
   } catch (error) {
     console.log(error);
