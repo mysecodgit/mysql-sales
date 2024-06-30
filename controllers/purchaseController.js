@@ -79,7 +79,7 @@ exports.createPurchase = async function (req, res) {
   try {
     let {
       purchaseNo,
-      userId,
+      userId,branchId,
       vendorId,
       purchaseDate,
       selectedIncomeAccount,
@@ -102,7 +102,7 @@ exports.createPurchase = async function (req, res) {
           vendorId
         )},${parseInt(
           userId
-        )},${selectedIncomeAccount},${setlectedBankAccount},${parseFloat(
+        )},${parseInt(branchId)},${selectedIncomeAccount},${setlectedBankAccount},${parseFloat(
           subTotal
         )},${parseFloat(discount)},${parseFloat(total)},'${
           TRANSACTION_STATUS.LATEST
@@ -123,7 +123,7 @@ exports.createPurchase = async function (req, res) {
         );
 
         await tx.insert(
-          `insert into products_branches values(null,null${item.productId},${item.branchId},${item.qty},'${TRANSACTION_STATUS.LATEST}',now(),now())`
+          `insert into products_branches values(null,null,${item.productId},${item.branchId},${item.qty},'${TRANSACTION_STATUS.LATEST}',now(),now())`
         );
 
         const product = await tx.getrow(
@@ -146,14 +146,14 @@ exports.createPurchase = async function (req, res) {
         await tx.insert(
           `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
             userId
-          )},${parseInt(product.assetAccount)},${parseFloat(
+          )},${parseInt(branchId)},${parseInt(product.assetAccount)},${parseFloat(
             item.total
           )},null,'${TRANSACTION_STATUS.LATEST}')`
         );
         await tx.insert(
           `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
             userId
-          )},${DEFAULT_ACCOUNTS.ACCOUNT_PAYABLE},null,${parseFloat(
+          )},${parseInt(branchId)},${DEFAULT_ACCOUNTS.ACCOUNT_PAYABLE},null,${parseFloat(
             item.total
           )},'${TRANSACTION_STATUS.LATEST}')`
         );
@@ -163,14 +163,14 @@ exports.createPurchase = async function (req, res) {
         await tx.insert(
           `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
             userId
-          )},${parseInt(DEFAULT_ACCOUNTS.ACCOUNT_PAYABLE)},${parseFloat(
+          )},${parseInt(branchId)},${parseInt(DEFAULT_ACCOUNTS.ACCOUNT_PAYABLE)},${parseFloat(
             discount
           )},null,'${TRANSACTION_STATUS.LATEST}')`
         );
         await tx.insert(
           `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
             userId
-          )},${parseInt(selectedIncomeAccount)},null,${parseFloat(discount)},'${
+          )},${parseInt(branchId)},${parseInt(selectedIncomeAccount)},null,${parseFloat(discount)},'${
             TRANSACTION_STATUS.LATEST
           }')`
         );
@@ -185,7 +185,7 @@ exports.createPurchase = async function (req, res) {
         await tx.insert(
           `insert into purchase_payments values(null,${paymentTransaction},${purchase},${parseInt(
             vendorId
-          )},${parseInt(userId)},${setlectedBankAccount},${parseFloat(paid)},'${
+          )},${parseInt(userId)},${parseInt(branchId)},${setlectedBankAccount},${parseFloat(paid)},'${
             TRANSACTION_STATUS.LATEST
           }','memory',now(),now())`
         );
@@ -194,14 +194,14 @@ exports.createPurchase = async function (req, res) {
         await tx.insert(
           `insert into transaction_detials values(null,now(),now(),${paymentTransaction},${parseInt(
             userId
-          )},${parseInt(DEFAULT_ACCOUNTS.ACCOUNT_PAYABLE)},${parseFloat(
+          )},${parseInt(branchId)},${parseInt(DEFAULT_ACCOUNTS.ACCOUNT_PAYABLE)},${parseFloat(
             paid
           )},null,'${TRANSACTION_STATUS.LATEST}')`
         );
         await tx.insert(
           `insert into transaction_detials values(null,now(),now(),${paymentTransaction},${parseInt(
             userId
-          )},${parseInt(setlectedBankAccount)},null,${parseFloat(paid)},'${
+          )},${parseInt(branchId)},${parseInt(setlectedBankAccount)},null,${parseFloat(paid)},'${
             TRANSACTION_STATUS.LATEST
           }')`
         );
@@ -273,7 +273,7 @@ exports.cancelPurchase = async function (req, res) {
         );
 
         await tx.insert(
-          `insert into products_branches values(null,null${parseInt(
+          `insert into products_branches values(null,null,${parseInt(
             purcahseItem.product_id
           )},${parseInt(purcahseItem.branch_id)},${parseInt(
             -purcahseItem.qty

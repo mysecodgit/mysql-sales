@@ -41,7 +41,7 @@ exports.getVendor = async function (req, res) {
 
 exports.createVendor = async function (req, res) {
   try {
-    let { name, phone, openingBalance } = req.body;
+    let { name, phone, openingBalance, userId, branchId } = req.body;
 
     let vendor = await mydb.getall(
       `select * from vendors where name='${name}'`
@@ -65,20 +65,24 @@ exports.createVendor = async function (req, res) {
         );
 
         await tx.insert(
-          `insert into transaction_detials values(null,now(),now(),${transaction},"hudeifa",${parseInt(
+          `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
+            userId
+          )},${parseInt(branchId)},${parseInt(
             DEFAULT_ACCOUNTS.UNCATEGORIZED_EXPENSE
           )},${parseFloat(openingBalance)},null,'${TRANSACTION_STATUS.LATEST}')`
         );
         await tx.insert(
-          `insert into transaction_detials values(null,now(),now(),${transaction},"hudeifa",${
+          `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
+            userId
+          )},${parseInt(branchId)},${
             DEFAULT_ACCOUNTS.ACCOUNT_PAYABLE
           },null,${parseFloat(openingBalance)},'${TRANSACTION_STATUS.LATEST}')`
         );
 
         await tx.insert(
-          `insert into purchases values(null,'OPENING',${transaction},now(),${vendor},null,null,${parseFloat(
+          `insert into purchases values(null,'OPENING',${transaction},now(),${vendor},${parseInt(userId)},${parseInt(branchId)},null,null,${parseFloat(
             openingBalance
-          )},0,${parseFloat(openingBalance)},'opening','opening balance')`
+          )},0,${parseFloat(openingBalance)},'${TRANSACTION_STATUS.LATEST}','opening balance')`
         );
       }
     });

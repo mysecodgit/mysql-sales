@@ -15,6 +15,7 @@ function generateAccessToken(user, menues) {
     user: {
       id: user.id,
       username: user.username,
+      branchId: user.branch_id,
     },
     menues: menues,
   };

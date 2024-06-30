@@ -48,8 +48,14 @@ exports.getAccount = async function (req, res) {
 
 exports.createAccount = async function (req, res) {
   try {
-    const { accountName, accountNumber, accountType, openingBalance } =
-      req.body;
+    const {
+      accountName,
+      accountNumber,
+      accountType,
+      openingBalance,
+      userId,
+      branchId,
+    } = req.body;
 
     const existingAccountType = await mydb.getrow(
       `select * from account_types where id="${parseInt(accountType)}"`
@@ -72,10 +78,18 @@ exports.createAccount = async function (req, res) {
           );
 
           await tx.insert(
-            `insert into transaction_detials values(null,now(),now(),${transaction},"hudeifa",${account},${openingBalance},null,'${TRANSACTION_STATUS.LATEST}')`
+            `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
+              userId
+            )},${parseInt(branchId)},${account},${openingBalance},null,'${
+              TRANSACTION_STATUS.LATEST
+            }')`
           );
           await tx.insert(
-            `insert into transaction_detials values(null,now(),now(),${transaction},"hudeifa",${DEFAULT_ACCOUNTS.OPENING_BALANCE_EQUITY},null,${openingBalance},'${TRANSACTION_STATUS.LATEST}')`
+            `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
+              userId
+            )},${parseInt(branchId)},${
+              DEFAULT_ACCOUNTS.OPENING_BALANCE_EQUITY
+            },null,${openingBalance},'${TRANSACTION_STATUS.LATEST}')`
           );
         }
 
@@ -88,10 +102,18 @@ exports.createAccount = async function (req, res) {
             `insert into transaction values(null,'${TRANSACTION_TYPES.GENERAL_LEDGER}','account opening balance',now(),now())`
           );
           await tx.insert(
-            `insert into transaction_detials values(null,now(),now(),${transaction},"hudeifa",${account},null,${openingBalance},'${TRANSACTION_STATUS.LATEST}')`
+            `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
+              userId
+            )},${parseInt(branchId)},${account},null,${openingBalance},'${
+              TRANSACTION_STATUS.LATEST
+            }')`
           );
           await tx.insert(
-            `insert into transaction_detials values(null,now(),now(),${transaction},"hudeifa",${DEFAULT_ACCOUNTS.OPENING_BALANCE_EQUITY},${openingBalance},null,'${TRANSACTION_STATUS.LATEST}')`
+            `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
+              userId
+            )},${parseInt(branchId)},${
+              DEFAULT_ACCOUNTS.OPENING_BALANCE_EQUITY
+            },${openingBalance},null,'${TRANSACTION_STATUS.LATEST}')`
           );
         }
 
@@ -106,10 +128,18 @@ exports.createAccount = async function (req, res) {
             `insert into transaction values(null,'${TRANSACTION_TYPES.DEPOSIT}','account opening balance',now(),now())`
           );
           await tx.insert(
-            `insert into transaction_detials values(null,now(),now(),${transaction},"hudeifa",${account},${openingBalance},null,'${TRANSACTION_STATUS.LATEST}')`
+            `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
+              userId
+            )},${parseInt(branchId)},${account},${openingBalance},null,'${
+              TRANSACTION_STATUS.LATEST
+            }')`
           );
           await tx.insert(
-            `insert into transaction_detials values(null,now(),now(),${transaction},"hudeifa",${DEFAULT_ACCOUNTS.OPENING_BALANCE_EQUITY},null,${openingBalance},'${TRANSACTION_STATUS.LATEST}')`
+            `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
+              userId
+            )},${parseInt(branchId)},${
+              DEFAULT_ACCOUNTS.OPENING_BALANCE_EQUITY
+            },null,${openingBalance},'${TRANSACTION_STATUS.LATEST}')`
           );
         }
       } else {

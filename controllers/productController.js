@@ -50,6 +50,8 @@ exports.createProduct = async function (req, res) {
       costOfGoodsSoldAccount,
       assetAccount,
       incomeAccount,
+      userId,
+      branchId,
     } = req.body;
 
     if (!costOfGoodsSoldAccount)
@@ -97,12 +99,18 @@ exports.createProduct = async function (req, res) {
         const transactionAmount = qtyOnHand * costPrice;
 
         await tx.insert(
-          `insert into transaction_detials values(null,now(),now(),${transaction},"hudeifa",${parseInt(
+          `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
+            userId
+          )},${parseInt(branchId)},${parseInt(
             assetAccount
           )},${transactionAmount},null,'${TRANSACTION_STATUS.LATEST}')`
         );
         await tx.insert(
-          `insert into transaction_detials values(null,now(),now(),${transaction},"hudeifa",${DEFAULT_ACCOUNTS.OPENING_BALANCE_EQUITY},null,${transactionAmount},'${TRANSACTION_STATUS.LATEST}')`
+          `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
+            userId
+          )},${parseInt(branchId)},${
+            DEFAULT_ACCOUNTS.OPENING_BALANCE_EQUITY
+          },null,${transactionAmount},'${TRANSACTION_STATUS.LATEST}')`
         );
       }
     });
@@ -150,7 +158,7 @@ exports.updateProduct = async function (req, res) {
     sellingPrice=${sellingPrice},
     costOfGoodsSoldAccount=${parseInt(costOfGoodsSoldAccount)},
     assetAccount=${parseInt(assetAccount)},
-    incomeAccount=${parseInt(incomeAccount)},
+    incomeAccount=${parseInt(incomeAccount)}
      where id=${parseInt(req.params.id)}`);
 
     res.status(201).json({

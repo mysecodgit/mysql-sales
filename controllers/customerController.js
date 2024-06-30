@@ -41,7 +41,7 @@ exports.getCustomer = async function (req, res) {
 
 exports.createCustomer = async function (req, res) {
   try {
-    let { name, phone, openingBalance } = req.body;
+    let { name, phone, openingBalance, userId, branchId } = req.body;
 
     let customer = await mydb.getall(
       `select * from customers where name='${name}'`
@@ -65,20 +65,26 @@ exports.createCustomer = async function (req, res) {
         );
 
         await tx.insert(
-          `insert into transaction_detials values(null,now(),now(),${transaction},"hudeifa",${parseInt(
+          `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
+            userId
+          )},${parseInt(branchId)},${parseInt(
             DEFAULT_ACCOUNTS.ACCOUNT_RECEIVABLE
           )},${parseFloat(openingBalance)},null,'${TRANSACTION_STATUS.LATEST}')`
         );
         await tx.insert(
-          `insert into transaction_detials values(null,now(),now(),${transaction},"hudeifa",${
+          `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
+            userId
+          )},${parseInt(branchId)},${
             DEFAULT_ACCOUNTS.UNCATEGORIZED_INCOME
           },null,${parseFloat(openingBalance)},'${TRANSACTION_STATUS.LATEST}')`
         );
 
         await tx.insert(
-          `insert into sales values(null,'OPENING',${transaction},now(),${customer},${parseFloat(
-            openingBalance
-          )},0,${parseFloat(openingBalance)},'opening','opening balance')`
+          `insert into sales values(null,'OPENING',${transaction},now(),${customer},${parseInt(
+            userId
+          )},null,null,${parseFloat(openingBalance)},0,${parseFloat(openingBalance)},'${
+            TRANSACTION_STATUS.LATEST
+          }','opening balance')`
         );
       }
     });
