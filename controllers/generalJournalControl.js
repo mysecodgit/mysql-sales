@@ -45,15 +45,16 @@ exports.getJournalById = async (req, res) => {
         .json({ success: false, message: "JournalId does not exist." });
 
     const journal = await mydb.getrow(`
-      SELECT id,transaction_id,memo,date FROM general_journal WHERE id = ${parseInt(
-        JournalId
-      )}
+      SELECT gj.id,gj.transaction_id,gj.memo,gj.date,br.id branchId,br.branch_name branchName
+       FROM general_journal gj
+      LEFT JOIN branches br on gj.branch_id = br.id
+      WHERE gj.id = ${parseInt(JournalId)}
         `);
 
     const journalDetails = await mydb.getall(`
     SELECT acc.id accountId,acc.accountName,td.debit,td.credit from transaction_detials td
     LEFT JOIN accounts acc on td.account_id = acc.id
-    where td.transaction_id =${journal.transaction_id}
+    where td.transaction_id =${journal.transaction_id} and td.status='${TRANSACTION_STATUS.LATEST}'
       `);
 
     res.json({
@@ -109,7 +110,7 @@ WHERE typ.typeName != 'Account Payable' and typ.typeName != 'Account Receivable'
 
 exports.createGeneralJournal = async function (req, res) {
   try {
-    let { JournalDate, memo, userId, rows } = req.body;
+    let { JournalDate, memo, userId, branchId, rows } = req.body;
 
     await mydb.transaction(async (tx) => {
       const transaction = await tx.insert(
@@ -117,16 +118,20 @@ exports.createGeneralJournal = async function (req, res) {
       );
 
       await tx.insert(
-        `insert into general_journal values(null,'${JournalDate}',${transaction},'${memo}','${TRANSACTION_STATUS.LATEST}',now(),now())`
+        `insert into general_journal values(null,'${JournalDate}',${transaction},${parseInt(
+          userId
+        )},${parseInt(branchId)},'${memo}','${
+          TRANSACTION_STATUS.LATEST
+        }',now(),now())`
       );
 
       for (const row of rows) {
         await tx.insert(
-          `insert into transaction_detials values(null,now(),now(),${transaction},${userId},${parseInt(
-            row.accountId
-          )},${parseFloat(row.debit) || null},${
-            parseFloat(row.credit) || null
-          },'${TRANSACTION_STATUS.LATEST}')`
+          `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
+            userId
+          )},${parseInt(branchId)},${parseInt(row.accountId)},${
+            parseFloat(row.debit) || null
+          },${parseFloat(row.credit) || null},'${TRANSACTION_STATUS.LATEST}')`
         );
       }
 
@@ -146,7 +151,7 @@ exports.createGeneralJournal = async function (req, res) {
 
 exports.updateGeneralJournal = async function (req, res) {
   try {
-    let { JournalId, JournalDate, memo, userId, rows } = req.body;
+    let { JournalId, JournalDate, memo, userId, branchId, rows } = req.body;
 
     await mydb.transaction(async (tx) => {
       const journal = await tx.getrow(
@@ -166,7 +171,6 @@ exports.updateGeneralJournal = async function (req, res) {
       await tx.update(
         `update transaction_detials set 
             updatedAt=now(),
-            user_id=${parseInt(userId)},
             status='${TRANSACTION_STATUS.PRIOR}'
              where transaction_id=${journal.transaction_id}`
       );
@@ -174,6 +178,8 @@ exports.updateGeneralJournal = async function (req, res) {
       await tx.update(
         `update general_journal set
         date='${JournalDate}',
+        user_id=${parseInt(userId)},
+        branch_id=${parseInt(branchId)},
         memo='${memo}',
          updatedAt=now() where id=${journal.id}`
       );
@@ -182,9 +188,11 @@ exports.updateGeneralJournal = async function (req, res) {
         await tx.insert(
           `insert into transaction_detials values(null,now(),now(),${
             journal.transaction_id
-          },${parseInt(userId)},${parseInt(row.accountId)},${
-            parseFloat(row.debit) || null
-          },${parseFloat(row.credit) || null},'${TRANSACTION_STATUS.LATEST}')`
+          },${parseInt(userId)},${parseInt(branchId)},${parseInt(
+            row.accountId
+          )},${parseFloat(row.debit) || null},${
+            parseFloat(row.credit) || null
+          },'${TRANSACTION_STATUS.LATEST}')`
         );
       }
 

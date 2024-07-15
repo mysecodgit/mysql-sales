@@ -9,10 +9,12 @@ const {
 exports.getAllSalesPayments = async function (req, res) {
   try {
     let salesPayments = await mydb.getall(`
-    SELECT pp.id,p.id saleId,p.salesNo,pp.createdAt,a.id accountId,a.accountName,v.id customerId,v.name customerName,pp.amount FROM sales_payment pp
+    SELECT pp.id,p.id saleId,p.salesNo,pp.createdAt,a.id accountId,a.accountName,
+    v.id customerId,v.name customerName,pp.amount,br.id branchId,br.branch_name branchName FROM sales_payment pp
     LEFT JOIN sales p on pp.sales_id = p.id
     LEFT JOIN customers v on pp.customer_id = v.id
     LEFT JOIN accounts a on pp.account_id = a.id
+    LEFT JOIN branches br ON pp.branch_id = br.id 
     WHERE pp.status = 'Latest'
     `);
     res.json({
@@ -47,7 +49,7 @@ exports.getSalesPayment = async function (req, res) {
 
 exports.createSalesPayment = async function (req, res) {
   try {
-    let { customerId, userId, saleId, paidAmount, accountId } = req.body;
+    let { customerId, userId,branchId, saleId, paidAmount, accountId } = req.body;
 
     await mydb.transaction(async (tx) => {
       const transaction = await tx.insert(
@@ -57,7 +59,7 @@ exports.createSalesPayment = async function (req, res) {
       await tx.insert(
         `insert into sales_payment values(null,${transaction},${saleId},${parseInt(
           customerId
-        )},${parseInt(userId)},${accountId},${parseFloat(paidAmount)},'${
+        )},${parseInt(userId)},${parseInt(branchId)},${accountId},${parseFloat(paidAmount)},'${
           TRANSACTION_STATUS.LATEST
         }','',now(),now())`
       );
@@ -66,14 +68,14 @@ exports.createSalesPayment = async function (req, res) {
       await tx.insert(
         `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
           userId
-        )},${parseInt(accountId)},${parseFloat(paidAmount)},null,'${
+        )},${parseInt(branchId)},${parseInt(accountId)},${parseFloat(paidAmount)},null,'${
           TRANSACTION_STATUS.LATEST
         }')`
       );
       await tx.insert(
         `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
           userId
-        )},${parseInt(DEFAULT_ACCOUNTS.ACCOUNT_RECEIVABLE)},null,${parseFloat(
+        )},${parseInt(branchId)},${parseInt(DEFAULT_ACCOUNTS.ACCOUNT_RECEIVABLE)},null,${parseFloat(
           paidAmount
         )},'${TRANSACTION_STATUS.LATEST}')`
       );
@@ -94,7 +96,7 @@ exports.createSalesPayment = async function (req, res) {
 
 exports.updateSalesPayment = async function (req, res) {
   try {
-    let { customerId, userId, saleId, paidAmount, accountId } = req.body;
+    let { customerId, userId,branchId, saleId, paidAmount, accountId } = req.body;
 
     await mydb.transaction(async (tx) => {
       const payment = await tx.getrow(
@@ -124,7 +126,7 @@ exports.updateSalesPayment = async function (req, res) {
           payment.transaction_id
         },${saleId},${parseInt(customerId)},${parseInt(
           userId
-        )},${accountId},${parseFloat(paidAmount)},'${
+        )},${parseInt(branchId)},${accountId},${parseFloat(paidAmount)},'${
           TRANSACTION_STATUS.LATEST
         }','',now(),now())`
       );
@@ -133,14 +135,14 @@ exports.updateSalesPayment = async function (req, res) {
       await tx.insert(
         `insert into transaction_detials values(null,now(),now(),${
           payment.transaction_id
-        },${parseInt(userId)},${parseInt(accountId)},${parseFloat(
+        },${parseInt(userId)},${parseInt(branchId)},${parseInt(accountId)},${parseFloat(
           paidAmount
         )},null,'${TRANSACTION_STATUS.LATEST}')`
       );
       await tx.insert(
         `insert into transaction_detials values(null,now(),now(),${
           payment.transaction_id
-        },${parseInt(userId)},${parseInt(
+        },${parseInt(userId)},${parseInt(branchId)},${parseInt(
           DEFAULT_ACCOUNTS.ACCOUNT_RECEIVABLE
         )},null,${parseFloat(paidAmount)},'${TRANSACTION_STATUS.LATEST}')`
       );
@@ -204,7 +206,7 @@ exports.deleteSalesPayment = async function (req, res) {
 
 exports.createSalesReturnPayment = async function (req, res) {
   try {
-    let { customerId, userId, return_id, paidAmount, accountId } = req.body;
+    let { customerId, userId,branchId, return_id, paidAmount, accountId } = req.body;
 
     await mydb.transaction(async (tx) => {
       const transaction = await tx.insert(
@@ -214,7 +216,7 @@ exports.createSalesReturnPayment = async function (req, res) {
       await tx.insert(
         `insert into sales_return_payment values(null,${transaction},${return_id},${parseInt(
           customerId
-        )},${parseInt(userId)},${accountId},${parseFloat(paidAmount)},'${
+        )},${parseInt(userId)},${parseInt(branchId)},${accountId},${parseFloat(paidAmount)},'${
           TRANSACTION_STATUS.LATEST
         }','',now(),now())`
       );
@@ -223,14 +225,14 @@ exports.createSalesReturnPayment = async function (req, res) {
       await tx.insert(
         `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
           userId
-        )},${parseInt(DEFAULT_ACCOUNTS.ACCOUNT_RECEIVABLE)},${parseFloat(
+        )},${parseInt(branchId)},${parseInt(DEFAULT_ACCOUNTS.ACCOUNT_RECEIVABLE)},${parseFloat(
           paidAmount
         )},null,'${TRANSACTION_STATUS.LATEST}')`
       );
       await tx.insert(
         `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
           userId
-        )},${parseInt(accountId)},null,${parseFloat(paidAmount)},'${
+        )},${parseInt(branchId)},${parseInt(accountId)},null,${parseFloat(paidAmount)},'${
           TRANSACTION_STATUS.LATEST
         }')`
       );
@@ -251,7 +253,7 @@ exports.createSalesReturnPayment = async function (req, res) {
 
 exports.updateSalesReturnPayment = async function (req, res) {
   try {
-    let { customerId, userId, return_id, paidAmount, accountId } = req.body;
+    let { customerId, userId,branchId, return_id, paidAmount, accountId } = req.body;
 
     await mydb.transaction(async (tx) => {
       const payment = await tx.getrow(
@@ -281,7 +283,7 @@ exports.updateSalesReturnPayment = async function (req, res) {
           payment.transaction_id
         },${return_id},${parseInt(customerId)},${parseInt(
           userId
-        )},${accountId},${parseFloat(paidAmount)},'${
+        )},${parseInt(branchId)},${accountId},${parseFloat(paidAmount)},'${
           TRANSACTION_STATUS.LATEST
         }','',now(),now())`
       );
@@ -290,14 +292,14 @@ exports.updateSalesReturnPayment = async function (req, res) {
       await tx.insert(
         `insert into transaction_detials values(null,now(),now(),${
           payment.transaction_id
-        },${parseInt(userId)},${parseInt(
+        },${parseInt(userId)},${parseInt(branchId)},${parseInt(
           DEFAULT_ACCOUNTS.ACCOUNT_RECEIVABLE
         )},${parseFloat(paidAmount)},null,'${TRANSACTION_STATUS.LATEST}')`
       );
       await tx.insert(
         `insert into transaction_detials values(null,now(),now(),${
           payment.transaction_id
-        },${parseInt(userId)},${parseInt(accountId)},null,${parseFloat(
+        },${parseInt(userId)},${parseInt(branchId)},${parseInt(accountId)},null,${parseFloat(
           paidAmount
         )},'${TRANSACTION_STATUS.LATEST}')`
       );
@@ -319,11 +321,13 @@ exports.updateSalesReturnPayment = async function (req, res) {
 exports.getAllSalesPaymentReturns = async function (req, res) {
   try {
     let salesReturnPayments = await mydb.getall(`
-    SELECT srp.id,sr.id salesReturnId,s.salesNo,srp.createdAt,a.id accountId,a.accountName,c.id customerId,c.name customerName,srp.amount FROM sales_return_payment srp
+    SELECT srp.id,sr.id salesReturnId,s.salesNo,srp.createdAt,a.id accountId,a.accountName,
+    c.id customerId,c.name customerName,srp.amount,br.id branchId,br.branch_name branchName FROM sales_return_payment srp
     LEFT JOIN sales_return sr  on srp.return_id = sr.id
     LEFT JOIN sales s on sr.sales_id = s.id 
     LEFT JOIN customers c on srp.customer_id = c.id
     LEFT JOIN accounts a on srp.account_id = a.id
+    LEFT JOIN branches br on srp.branch_id = br.id
     WHERE srp.status = 'Latest'
     `);
     res.json({

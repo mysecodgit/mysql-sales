@@ -36,7 +36,7 @@ exports.getBranch = async function (req, res) {
 
 exports.createBranch = async function (req, res) {
   try {
-    let { name, location } = req.body;
+    let { name, location, type } = req.body;
 
     let branch = await mydb.getall(
       `select * from branches where branch_name='${name}'`
@@ -46,7 +46,7 @@ exports.createBranch = async function (req, res) {
       return res.json({ success: false, message: "Branch Already Exist" });
 
     await mydb.insert(
-      `insert into branches values(null,'${name}','${location}')`
+      `insert into branches values(null,'${name}','${location}','${type}')`
     );
     res.status(201).json({
       success: true,
@@ -63,7 +63,7 @@ exports.createBranch = async function (req, res) {
 
 exports.updateBranch = async function (req, res) {
   try {
-    let { branchId, name, location } = req.body;
+    let { branchId, name, location, type } = req.body;
 
     let branch = await mydb.getall(
       `select * from branches where id='${branchId}'`
@@ -74,7 +74,8 @@ exports.updateBranch = async function (req, res) {
 
     await mydb.update(
       `update branches set branch_name='${name}', 
-      branch_location='${location}'
+      branch_location='${location}',
+      type='${type}'
       where id=${parseInt(branchId)}
       `
     );

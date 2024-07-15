@@ -173,7 +173,7 @@ exports.updateAccount = async function (req, res) {
       return res.json({ success: false, message: "account Does not Exist" });
 
     await mydb.update(
-      `update accounts set accountName='${accountName}' where id=${parseInt(
+      `update accounts set accountName='${accountName}',accountNumber=${parseInt(accountNumber)} where id=${parseInt(
         req.params.id
       )} and isDefault=${false}`
     );
@@ -382,18 +382,27 @@ WHERE td.account_id = ${parseInt(req.params.accountId)}
 
 exports.transferMoney = async (req, res) => {
   try {
-    let { fromBankAccountId, toBankAccountId, amount, userId, date } = req.body;
+    let { fromBankAccountId, toBankAccountId, amount, userId, branchId, date } =
+      req.body;
 
     await mydb.transaction(async (tx) => {
       const transaction = await tx.insert(
         `insert into transaction values(null,'${TRANSACTION_TYPES.TRANSFER_MONEY}','',now(),now())`
       );
       await tx.insert(
-        `insert into transaction_detials values(null,now(),now(),${transaction},"hudeifa",${fromBankAccountId},null,${amount},'${TRANSACTION_STATUS.LATEST}')`
+        `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
+          userId
+        )},${parseInt(branchId)},${fromBankAccountId},null,${amount},'${
+          TRANSACTION_STATUS.LATEST
+        }')`
       );
 
       await tx.insert(
-        `insert into transaction_detials values(null,now(),now(),${transaction},"hudeifa",${toBankAccountId},${amount},null,'${TRANSACTION_STATUS.LATEST}')`
+        `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
+          userId
+        )},${parseInt(branchId)},${toBankAccountId},${amount},null,'${
+          TRANSACTION_STATUS.LATEST
+        }')`
       );
 
       await tx.insert(
@@ -401,7 +410,9 @@ exports.transferMoney = async (req, res) => {
           fromBankAccountId
         )},${parseInt(toBankAccountId)},${parseFloat(amount)},${parseInt(
           userId
-        )},'${date}','${TRANSACTION_STATUS.LATEST}',now(),now())`
+        )},${parseInt(branchId)},'${date}','${
+          TRANSACTION_STATUS.LATEST
+        }',now(),now())`
       );
     });
 
@@ -427,6 +438,7 @@ exports.updateTransferMoney = async (req, res) => {
       amount,
       date,
       userId,
+      branchId,
     } = req.body;
 
     await mydb.transaction(async (tx) => {
@@ -446,6 +458,7 @@ exports.updateTransferMoney = async (req, res) => {
           amount=${parseFloat(amount)},
           date='${date}',
           userId=${parseInt(userId)},
+          branch_id=${parseInt(branchId)},
            updatedAt=now() where id=${transfer.id}`
       );
 
@@ -458,11 +471,19 @@ exports.updateTransferMoney = async (req, res) => {
       );
 
       await tx.insert(
-        `insert into transaction_detials values(null,now(),now(),${transfer.transaction_id},"hudeifa",${fromBankAccountId},null,${amount},'${TRANSACTION_STATUS.LATEST}')`
+        `insert into transaction_detials values(null,now(),now(),${
+          transfer.transaction_id
+        },${parseInt(userId)},${parseInt(
+          branchId
+        )},${fromBankAccountId},null,${amount},'${TRANSACTION_STATUS.LATEST}')`
       );
 
       await tx.insert(
-        `insert into transaction_detials values(null,now(),now(),${transfer.transaction_id},"hudeifa",${toBankAccountId},${amount},null,'${TRANSACTION_STATUS.LATEST}')`
+        `insert into transaction_detials values(null,now(),now(),${
+          transfer.transaction_id
+        },${parseInt(userId)},${parseInt(
+          branchId
+        )},${toBankAccountId},${amount},null,'${TRANSACTION_STATUS.LATEST}')`
       );
     });
 
@@ -484,10 +505,11 @@ exports.getMoneyTransfers = async function (req, res) {
     // be carefull with joins the two id of table can
     // cause conflict if alias not used
     let transfers = await mydb.getall(`
-    SELECT mt.id,mt.amount,acc.id fromAccountId ,acc.accountName fromAccount,acc2.id toAccountId,acc2.accountName toAccount,mt.date,u.username FROM money_transfer mt
+    SELECT mt.id,mt.amount,acc.id fromAccountId ,acc.accountName fromAccount,acc2.id toAccountId,acc2.accountName toAccount,mt.date,u.username,br.id branchId,br.branch_name branchName FROM money_transfer mt
 LEFT JOIN accounts acc on mt.fromAccountId = acc.id
 LEFT JOIN accounts acc2 on mt.toAccountId = acc2.id
 LEFT JOIN users u on mt.userId = u.id
+LEFT JOIN branches br on mt.branch_id = br.id
 WHERE mt.status = '${TRANSACTION_STATUS.LATEST}'
     `);
     res.json({

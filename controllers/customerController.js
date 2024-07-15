@@ -8,7 +8,10 @@ const {
 
 exports.getAllCustomers = async function (req, res) {
   try {
-    let customers = await mydb.getall("select * from customers");
+    let customers = await mydb.getall(`
+    select c.id,c.name,c.phone,c.createdAt,b.id branch_id,b.branch_name branch_name from customers c
+    left join branches b on c.branch_id = b.id
+    `);
     res.json({
       success: true,
       customers,
@@ -54,9 +57,9 @@ exports.createCustomer = async function (req, res) {
 
     await mydb.transaction(async (tx) => {
       const customer = await tx.insert(
-        `insert into customers values(null,'${name}','${phone}',${parseFloat(
-          openingBalance
-        )},now(),now())`
+        `insert into customers values(null,'${name}','${phone}',${parseInt(
+          branchId
+        )},${parseFloat(openingBalance)},now(),now())`
       );
 
       if (openingBalance > 0) {
@@ -82,7 +85,9 @@ exports.createCustomer = async function (req, res) {
         await tx.insert(
           `insert into sales values(null,'OPENING',${transaction},now(),${customer},${parseInt(
             userId
-          )},null,null,${parseFloat(openingBalance)},0,${parseFloat(openingBalance)},'${
+          )},${parseInt(branchId)},null,null,${parseFloat(
+            openingBalance
+          )},0,${parseFloat(openingBalance)},'${
             TRANSACTION_STATUS.LATEST
           }','opening balance')`
         );
@@ -104,7 +109,7 @@ exports.createCustomer = async function (req, res) {
 
 exports.updateCustomer = async function (req, res) {
   try {
-    const { name, phone } = req.body;
+    const { name, phone,branchId } = req.body;
 
     let customer = await mydb.getall(
       `select * from customers where id=${parseInt(req.params.id)}`
@@ -113,7 +118,7 @@ exports.updateCustomer = async function (req, res) {
       return res.json({ success: false, message: "Customer Does not Exist" });
 
     await mydb.update(`update customers set name='${name}',
-    phone='${phone}'
+    phone='${phone}',branch_id=${parseInt(branchId)}
      where id=${parseInt(req.params.id)}`);
 
     res.status(200).json({

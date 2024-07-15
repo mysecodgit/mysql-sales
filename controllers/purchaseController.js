@@ -79,7 +79,7 @@ exports.createPurchase = async function (req, res) {
   try {
     let {
       purchaseNo,
-      userId,branchId,
+      userId,
       vendorId,
       purchaseDate,
       selectedIncomeAccount,
@@ -102,11 +102,15 @@ exports.createPurchase = async function (req, res) {
           vendorId
         )},${parseInt(
           userId
-        )},${parseInt(branchId)},${selectedIncomeAccount},${setlectedBankAccount},${parseFloat(
+        )},${selectedIncomeAccount},${setlectedBankAccount},${parseFloat(
           subTotal
         )},${parseFloat(discount)},${parseFloat(total)},'${
           TRANSACTION_STATUS.LATEST
         }','no memo')`
+      );
+
+      const hqBranch = await tx.getrow(
+        'select * from branches where type="hq"'
       );
 
       for (const item of items) {
@@ -123,7 +127,11 @@ exports.createPurchase = async function (req, res) {
         );
 
         await tx.insert(
-          `insert into products_branches values(null,null,${item.productId},${item.branchId},${item.qty},'${TRANSACTION_STATUS.LATEST}',now(),now())`
+          `insert into products_branches values(null,null,${
+            item.productId
+          },${parseInt(item.branchId)},${item.qty},'${
+            TRANSACTION_STATUS.LATEST
+          }',now(),now())`
         );
 
         const product = await tx.getrow(
@@ -146,16 +154,16 @@ exports.createPurchase = async function (req, res) {
         await tx.insert(
           `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
             userId
-          )},${parseInt(branchId)},${parseInt(product.assetAccount)},${parseFloat(
-            item.total
-          )},null,'${TRANSACTION_STATUS.LATEST}')`
+          )},${parseInt(item.branchId)},${parseInt(
+            product.assetAccount
+          )},${parseFloat(item.total)},null,'${TRANSACTION_STATUS.LATEST}')`
         );
         await tx.insert(
           `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
             userId
-          )},${parseInt(branchId)},${DEFAULT_ACCOUNTS.ACCOUNT_PAYABLE},null,${parseFloat(
-            item.total
-          )},'${TRANSACTION_STATUS.LATEST}')`
+          )},${parseInt(item.branchId)},${
+            DEFAULT_ACCOUNTS.ACCOUNT_PAYABLE
+          },null,${parseFloat(item.total)},'${TRANSACTION_STATUS.LATEST}')`
         );
       }
 
@@ -163,16 +171,16 @@ exports.createPurchase = async function (req, res) {
         await tx.insert(
           `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
             userId
-          )},${parseInt(branchId)},${parseInt(DEFAULT_ACCOUNTS.ACCOUNT_PAYABLE)},${parseFloat(
-            discount
-          )},null,'${TRANSACTION_STATUS.LATEST}')`
+          )},${parseInt(hqBranch.id)},${parseInt(
+            DEFAULT_ACCOUNTS.ACCOUNT_PAYABLE
+          )},${parseFloat(discount)},null,'${TRANSACTION_STATUS.LATEST}')`
         );
         await tx.insert(
           `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
             userId
-          )},${parseInt(branchId)},${parseInt(selectedIncomeAccount)},null,${parseFloat(discount)},'${
-            TRANSACTION_STATUS.LATEST
-          }')`
+          )},${parseInt(hqBranch.id)},${parseInt(
+            selectedIncomeAccount
+          )},null,${parseFloat(discount)},'${TRANSACTION_STATUS.LATEST}')`
         );
       }
 
@@ -185,7 +193,9 @@ exports.createPurchase = async function (req, res) {
         await tx.insert(
           `insert into purchase_payments values(null,${paymentTransaction},${purchase},${parseInt(
             vendorId
-          )},${parseInt(userId)},${parseInt(branchId)},${setlectedBankAccount},${parseFloat(paid)},'${
+          )},${parseInt(userId)},${parseInt(
+            hqBranch.id
+          )},${setlectedBankAccount},${parseFloat(paid)},'${
             TRANSACTION_STATUS.LATEST
           }','memory',now(),now())`
         );
@@ -194,16 +204,16 @@ exports.createPurchase = async function (req, res) {
         await tx.insert(
           `insert into transaction_detials values(null,now(),now(),${paymentTransaction},${parseInt(
             userId
-          )},${parseInt(branchId)},${parseInt(DEFAULT_ACCOUNTS.ACCOUNT_PAYABLE)},${parseFloat(
-            paid
-          )},null,'${TRANSACTION_STATUS.LATEST}')`
+          )},${parseInt(hqBranch.id)},${parseInt(
+            DEFAULT_ACCOUNTS.ACCOUNT_PAYABLE
+          )},${parseFloat(paid)},null,'${TRANSACTION_STATUS.LATEST}')`
         );
         await tx.insert(
           `insert into transaction_detials values(null,now(),now(),${paymentTransaction},${parseInt(
             userId
-          )},${parseInt(branchId)},${parseInt(setlectedBankAccount)},null,${parseFloat(paid)},'${
-            TRANSACTION_STATUS.LATEST
-          }')`
+          )},${parseInt(hqBranch.id)},${parseInt(
+            setlectedBankAccount
+          )},null,${parseFloat(paid)},'${TRANSACTION_STATUS.LATEST}')`
         );
       }
     });
@@ -373,7 +383,7 @@ exports.updatePurchase = async function (req, res) {
         `select * from purchase_details where purchase_id=${purchase.id}`
       );
 
-      for(const purcahseItem of purchaseItems){
+      for (const purcahseItem of purchaseItems) {
         const product = await tx.getrow(
           `select * from products where id=${purcahseItem.product_id}`
         );
@@ -385,7 +395,6 @@ exports.updatePurchase = async function (req, res) {
           `update products set qtyOnHand=${newQtyOnHand},avgCost=${newAvgCost} where id=${purcahseItem.product_id}`
         );
       }
-     
 
       await tx.update(
         `update purchase_details set updatedAt=now(),status='${TRANSACTION_STATUS.PRIOR}'
@@ -584,6 +593,7 @@ exports.createPurchaseReturn = async function (req, res) {
   try {
     let {
       userId,
+      branchId,
       vendorId,
       purchaseReturnDate,
       selectedInvoice,
@@ -600,6 +610,10 @@ exports.createPurchaseReturn = async function (req, res) {
       // create transaction
       const transaction = await tx.insert(
         `insert into transaction values(null,'${TRANSACTION_TYPES.PURCHASE_RETURN}','',now(),now())`
+      );
+
+      const hqBranch = await tx.getrow(
+        'select * from branches where type="hq"'
       );
 
       const purchaseReturn = await tx.insert(
@@ -628,7 +642,9 @@ exports.createPurchaseReturn = async function (req, res) {
         await tx.insert(
           `insert into products_branches values(null,null,${parseInt(
             item.productId
-          )},${parseInt(item.branchId)},${parseInt(-item.qty)},'${TRANSACTION_STATUS.LATEST}',now(),now())`
+          )},${parseInt(item.branchId)},${parseInt(-item.qty)},'${
+            TRANSACTION_STATUS.LATEST
+          }',now(),now())`
         );
 
         const product = await tx.getrow(
@@ -653,32 +669,32 @@ exports.createPurchaseReturn = async function (req, res) {
         await tx.insert(
           `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
             userId
-          )},${parseInt(DEFAULT_ACCOUNTS.ACCOUNT_PAYABLE)},${parseFloat(
-            item.total
-          )},null,'${TRANSACTION_STATUS.LATEST}')`
+          )},${parseInt(item.branchId)},${parseInt(
+            DEFAULT_ACCOUNTS.ACCOUNT_PAYABLE
+          )},${parseFloat(item.total)},null,'${TRANSACTION_STATUS.LATEST}')`
         );
         await tx.insert(
           `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
             userId
-          )},${product.assetAccount},null,${parseFloat(item.total)},'${
-            TRANSACTION_STATUS.LATEST
-          }')`
+          )},${parseInt(item.branchId)},${
+            product.assetAccount
+          },null,${parseFloat(item.total)},'${TRANSACTION_STATUS.LATEST}')`
         );
 
         if (difference != 0) {
           await tx.insert(
             `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
               userId
-            )},${parseInt(product.assetAccount)},${parseFloat(
-              difference
-            )},null,'${TRANSACTION_STATUS.LATEST}')`
+            )},${parseInt(item.branchId)},${parseInt(
+              product.assetAccount
+            )},${parseFloat(difference)},null,'${TRANSACTION_STATUS.LATEST}')`
           );
           await tx.insert(
             `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
               userId
-            )},${DEFAULT_ACCOUNTS.COST_OF_GOODS_SOLD},null,${parseFloat(
-              difference
-            )},'${TRANSACTION_STATUS.LATEST}')`
+            )},${parseInt(item.branchId)},${
+              DEFAULT_ACCOUNTS.COST_OF_GOODS_SOLD
+            },null,${parseFloat(difference)},'${TRANSACTION_STATUS.LATEST}')`
           );
         }
       }
@@ -692,7 +708,9 @@ exports.createPurchaseReturn = async function (req, res) {
         await tx.insert(
           `insert into purchase_return_payment values(null,${paymentTransaction},${purchaseReturn},${parseInt(
             vendorId
-          )},${parseInt(userId)},${setlectedBankAccount},${parseFloat(paid)},'${
+          )},${parseInt(userId)},${parseInt(
+            hqBranch.id
+          )},${setlectedBankAccount},${parseFloat(paid)},'${
             TRANSACTION_STATUS.LATEST
           }','memory',now(),now())`
         );
@@ -701,16 +719,16 @@ exports.createPurchaseReturn = async function (req, res) {
         await tx.insert(
           `insert into transaction_detials values(null,now(),now(),${paymentTransaction},${parseInt(
             userId
-          )},${parseInt(DEFAULT_ACCOUNTS.ACCOUNT_PAYABLE)},${parseFloat(
-            paid
-          )},null,'${TRANSACTION_STATUS.LATEST}')`
+          )},${parseInt(hqBranch.id)},${parseInt(
+            DEFAULT_ACCOUNTS.ACCOUNT_PAYABLE
+          )},${parseFloat(paid)},null,'${TRANSACTION_STATUS.LATEST}')`
         );
         await tx.insert(
           `insert into transaction_detials values(null,now(),now(),${paymentTransaction},${parseInt(
             userId
-          )},${parseInt(setlectedBankAccount)},null,${parseFloat(paid)},'${
-            TRANSACTION_STATUS.LATEST
-          }')`
+          )},${parseInt(hqBranch.id)},${parseInt(
+            setlectedBankAccount
+          )},null,${parseFloat(paid)},'${TRANSACTION_STATUS.LATEST}')`
         );
       }
     });

@@ -208,17 +208,19 @@ exports.deleteProduct = async function (req, res) {
 
 exports.transferProduct = async function (req, res) {
   try {
-    const { date, userId, rows } = req.body;
-
-    const transfer = await mydb.insert(
-      `insert into inventory_transfer values(null,'${date}',${parseInt(
-        userId
-      )},'${TRANSACTION_STATUS.LATEST}')`
-    );
+    const { date, userId, fromBranchId, toBranchId, rows } = req.body;
 
     await mydb.transaction(async (tx) => {
+      const transfer = await mydb.insert(
+        `insert into inventory_transfer values(null,'${date}',${parseInt(
+          userId
+        )},${parseInt(fromBranchId)},${parseInt(toBranchId)},'${
+          TRANSACTION_STATUS.LATEST
+        }')`
+      );
+
       for (const row of rows) {
-        const { productId, fromBranchId, toBranchId, qty } = row;
+        const { productId, qty } = row;
 
         await tx.insert(
           `insert into products_branches values(null,${transfer},${parseInt(
@@ -237,10 +239,7 @@ exports.transferProduct = async function (req, res) {
         );
 
         await tx.insert(`insert into inventory_transfer_detail 
-        values(null,${transfer},${parseInt(productId)},${parseInt(
-          fromBranchId
-        )},
-        ${parseInt(toBranchId)},${parseInt(userId)},${parseInt(qty)},
+        values(null,${transfer},${parseInt(productId)},${parseInt(qty)},
       '${TRANSACTION_STATUS.LATEST}','${date}',now(),now())`);
       }
 
@@ -257,7 +256,8 @@ exports.transferProduct = async function (req, res) {
 
 exports.updateTransferProduct = async function (req, res) {
   try {
-    const { transferId, date, userId, rows } = req.body;
+    const { transferId, date, userId, fromBranchId, toBranchId, rows } =
+      req.body;
 
     // substract from product_branches
 
@@ -265,7 +265,8 @@ exports.updateTransferProduct = async function (req, res) {
       await mydb.update(
         `update inventory_transfer set date='${date}',user_id=${parseInt(
           userId
-        )}
+        )},from_branch_id=${parseInt(fromBranchId)},
+        to_branch_id=${parseInt(toBranchId)}
         where id=${parseInt(transferId)}`
       );
 
@@ -284,7 +285,7 @@ exports.updateTransferProduct = async function (req, res) {
       );
 
       for (const row of rows) {
-        const { productId, fromBranchId, toBranchId, qty } = row;
+        const { productId, qty } = row;
 
         await tx.insert(
           `insert into products_branches values(null,${parseInt(
@@ -303,16 +304,13 @@ exports.updateTransferProduct = async function (req, res) {
         );
 
         await tx.insert(`insert into inventory_transfer_detail 
-        values(null,${transferId},${parseInt(productId)},${parseInt(
-          fromBranchId
-        )},
-        ${parseInt(toBranchId)},${parseInt(userId)},${parseInt(qty)},
+        values(null,${transferId},${parseInt(productId)},${parseInt(qty)},
       '${TRANSACTION_STATUS.LATEST}','${date}',now(),now())`);
       }
 
       res.json({
         success: true,
-        message: "successfully transfered inventories",
+        message: "successfully updated transfered inventories",
       });
     });
   } catch (err) {
@@ -324,16 +322,18 @@ exports.updateTransferProduct = async function (req, res) {
 exports.getProductsTransfered = async function (req, res) {
   try {
     const transfers = await mydb.getall(
-      `select * from inventory_transfer where status='Latest'`
+      `select inv_tr.id,inv_tr.date,br1.branch_name fromBranch,br2.branch_name toBranch
+       from inventory_transfer inv_tr
+      LEFT JOIN branches br1 on inv_tr.from_branch_id = br1.id
+      LEFT JOIN branches br2 on inv_tr.to_branch_id = br2.id
+      where inv_tr.status='Latest'`
     );
 
     let result = [];
 
     for (const t of transfers) {
       const transfersDetails = await mydb.getall(`
-          SELECT trn.id,trn.transfer_id,p.name,trn.qty,br1.branch_name fromBranch,br2.branch_name toBranch,trn.date FROM inventory_transfer_detail trn
-      LEFT JOIN branches br1 on trn.from_branch_id = br1.id
-      LEFT JOIN branches br2 on trn.to_branch_id = br2.id
+          SELECT trn.id,trn.transfer_id,p.name,trn.qty,trn.date FROM inventory_transfer_detail trn
       LEFT JOIN products p on trn.product_id = p.id
       WHERE trn.status = 'Latest' and trn.transfer_id=${t.id} ORDER BY trn.transfer_id`);
 
@@ -357,10 +357,14 @@ exports.getProductsTransferedById = async function (req, res) {
   try {
     const { transferId } = req.body;
 
-    const transfers =
-      await mydb.getall(`SELECT trn.id,p.id productId,p.name productName,trn.qty,br1.id fromBranchId,br1.branch_name fromBranch,br2.id toBranchId, br2.branch_name toBranch,trn.date FROM inventory_transfer_detail trn
-LEFT JOIN branches br1 on trn.from_branch_id = br1.id
-LEFT JOIN branches br2 on trn.to_branch_id = br2.id
+    const transfer = await mydb.getrow(`
+      SELECT inv_trn.id,inv_trn.date, br1.id fromBranchId,br1.branch_name fromBranch,br2.id toBranchId, br2.branch_name toBranch from inventory_transfer inv_trn
+      LEFT JOIN branches br1 on inv_trn.from_branch_id = br1.id
+      LEFT JOIN branches br2 on inv_trn.to_branch_id = br2.id
+      WHERE inv_trn.id=${parseInt(transferId)} and inv_trn.status='${TRANSACTION_STATUS.LATEST}'
+    `);
+    const transferDetails =
+      await mydb.getall(`SELECT trn.id,p.id productId,p.name productName,trn.qty FROM inventory_transfer_detail trn
 LEFT JOIN products p on trn.product_id = p.id
 WHERE trn.status='${
         TRANSACTION_STATUS.LATEST
@@ -368,7 +372,8 @@ WHERE trn.status='${
 
     res.json({
       success: true,
-      transfers,
+      transfer,
+      transferDetails,
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err });
