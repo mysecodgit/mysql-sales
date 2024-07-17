@@ -21,6 +21,28 @@ exports.getAllProducts = async function (req, res) {
   }
 };
 
+exports.getAllProductsByBranchId = async function (req, res) {
+  let { branchId } = req.body;
+
+  try {
+    let products = await mydb.getall(`
+    SELECT p.id,p.name,SUM(pb.qty) qtyOnHand,p.avgCost FROM products_branches pb
+    LEFT JOIN products p on pb.product_id = p.id
+    WHERE pb.branch_id = ${parseInt(branchId)}
+    GROUP BY pb.product_id,pb.branch_id 
+    `);
+    res.json({
+      success: true,
+      products,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error,
+    });
+  }
+};
+
 exports.getProduct = async function (req, res) {
   try {
     let product = await Product.findOne({
@@ -361,7 +383,9 @@ exports.getProductsTransferedById = async function (req, res) {
       SELECT inv_trn.id,inv_trn.date, br1.id fromBranchId,br1.branch_name fromBranch,br2.id toBranchId, br2.branch_name toBranch from inventory_transfer inv_trn
       LEFT JOIN branches br1 on inv_trn.from_branch_id = br1.id
       LEFT JOIN branches br2 on inv_trn.to_branch_id = br2.id
-      WHERE inv_trn.id=${parseInt(transferId)} and inv_trn.status='${TRANSACTION_STATUS.LATEST}'
+      WHERE inv_trn.id=${parseInt(transferId)} and inv_trn.status='${
+      TRANSACTION_STATUS.LATEST
+    }'
     `);
     const transferDetails =
       await mydb.getall(`SELECT trn.id,p.id productId,p.name productName,trn.qty FROM inventory_transfer_detail trn

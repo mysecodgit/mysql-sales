@@ -8,12 +8,14 @@ const {
   deleteProduct,
   transferProduct,
   getProductsTransfered,
-  getProductsTransferedById,updateTransferProduct,detleTransferById
+  getProductsTransferedById,updateTransferProduct,detleTransferById,
+  getAllProductsByBranchId
 } = require("../controllers/productController.js");
 
 const router = express.Router();
 
 router.get("/", getAllProducts);
+router.post("/get_by_branch_id", getAllProductsByBranchId);
 router.get("/:id", getProduct);
 router.post("/get_transfers", getProductsTransfered);
 router.post("/get_transfers_by_id", getProductsTransferedById);

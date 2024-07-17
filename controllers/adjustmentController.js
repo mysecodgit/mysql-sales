@@ -43,6 +43,7 @@ exports.createQtyAdjustment = async function (req, res) {
     let {
       date,
       adjustmentType,
+      branchId,
       adjustmentAccount,
       adjustmentAmount,
       userId,
@@ -57,9 +58,9 @@ exports.createQtyAdjustment = async function (req, res) {
       const adjustment = await tx.insert(
         `insert into inventory_adjustment values(null,${transaction},${parseInt(
           userId
-        )},'${adjustmentType}',${parseFloat(adjustmentAmount)},'${date}','${
-          TRANSACTION_STATUS.LATEST
-        }',now(),now())`
+        )},${parseInt(branchId)},'${adjustmentType}',${parseFloat(
+          adjustmentAmount
+        )},'${date}','${TRANSACTION_STATUS.LATEST}',now(),now())`
       );
 
       for (const row of rows) {
@@ -67,9 +68,11 @@ exports.createQtyAdjustment = async function (req, res) {
           `select * from products where id = ${parseInt(row.productId)}`
         );
 
+        const newQty = product.qtyOnHand + row.difference;
+
         await mydb.update(
           `update products set qtyOnHand=${parseInt(
-            row.newQty
+            newQty
           )} where id = ${parseInt(row.productId)}`
         );
 
@@ -94,16 +97,16 @@ exports.createQtyAdjustment = async function (req, res) {
           await tx.insert(
             `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
               userId
-            )},${parseInt(adjustmentAccount)},${Math.abs(row.total)},null,'${
-              TRANSACTION_STATUS.LATEST
-            }')`
+            )},${parseInt(branchId)},${parseInt(adjustmentAccount)},${Math.abs(
+              row.total
+            )},null,'${TRANSACTION_STATUS.LATEST}')`
           );
           await tx.insert(
             `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
               userId
-            )},${product.assetAccount},null,${Math.abs(row.total)},'${
-              TRANSACTION_STATUS.LATEST
-            }')`
+            )},${parseInt(branchId)},${product.assetAccount},null,${Math.abs(
+              row.total
+            )},'${TRANSACTION_STATUS.LATEST}')`
           );
         }
 
@@ -111,16 +114,16 @@ exports.createQtyAdjustment = async function (req, res) {
           await tx.insert(
             `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
               userId
-            )},${parseInt(product.assetAccount)},${Math.abs(row.total)},null,'${
-              TRANSACTION_STATUS.LATEST
-            }')`
+            )},${parseInt(branchId)},${parseInt(
+              product.assetAccount
+            )},${Math.abs(row.total)},null,'${TRANSACTION_STATUS.LATEST}')`
           );
           await tx.insert(
             `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
               userId
-            )},${parseInt(adjustmentAccount)},null,${Math.abs(row.total)},'${
-              TRANSACTION_STATUS.LATEST
-            }')`
+            )},${parseInt(branchId)},${parseInt(
+              adjustmentAccount
+            )},null,${Math.abs(row.total)},'${TRANSACTION_STATUS.LATEST}')`
           );
         }
       }
@@ -155,12 +158,16 @@ exports.createValueAdjustment = async function (req, res) {
         `insert into transaction values(null,'${TRANSACTION_TYPES.INVENTORY_ADJUSTMENT}','',now(),now())`
       );
 
+      const hqBranch = await tx.getrow(
+        'select * from branches where type="hq"'
+      );
+
       const adjustment = await tx.insert(
         `insert into inventory_adjustment values(null,${transaction},${parseInt(
           userId
-        )},'${adjustmentType}',${parseFloat(adjustmentAmount)},'${date}','${
-          TRANSACTION_STATUS.LATEST
-        }',now(),now())`
+        )},${parseInt(hqBranch.id)},'${adjustmentType}',${parseFloat(
+          adjustmentAmount
+        )},'${date}','${TRANSACTION_STATUS.LATEST}',now(),now())`
       );
 
       for (const row of rows) {
@@ -198,16 +205,16 @@ exports.createValueAdjustment = async function (req, res) {
           await tx.insert(
             `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
               userId
-            )},${parseInt(adjustmentAccount)},${Math.abs(
-              row.difference
-            )},null,'${TRANSACTION_STATUS.LATEST}')`
+            )},${parseInt(hqBranch.id)},${parseInt(
+              adjustmentAccount
+            )},${Math.abs(row.difference)},null,'${TRANSACTION_STATUS.LATEST}')`
           );
           await tx.insert(
             `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
               userId
-            )},${product.assetAccount},null,${Math.abs(row.difference)},'${
-              TRANSACTION_STATUS.LATEST
-            }')`
+            )},${parseInt(hqBranch.id)},${product.assetAccount},null,${Math.abs(
+              row.difference
+            )},'${TRANSACTION_STATUS.LATEST}')`
           );
         }
 
@@ -215,16 +222,16 @@ exports.createValueAdjustment = async function (req, res) {
           await tx.insert(
             `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
               userId
-            )},${parseInt(product.assetAccount)},${Math.abs(
-              row.difference
-            )},null,'${TRANSACTION_STATUS.LATEST}')`
+            )},${parseInt(hqBranch.id)},${parseInt(
+              product.assetAccount
+            )},${Math.abs(row.difference)},null,'${TRANSACTION_STATUS.LATEST}')`
           );
           await tx.insert(
             `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
               userId
-            )},${parseInt(adjustmentAccount)},null,${Math.abs(
-              row.difference
-            )},'${TRANSACTION_STATUS.LATEST}')`
+            )},${parseInt(hqBranch.id)},${parseInt(
+              adjustmentAccount
+            )},null,${Math.abs(row.difference)},'${TRANSACTION_STATUS.LATEST}')`
           );
         }
       }

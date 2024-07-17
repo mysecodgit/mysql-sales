@@ -17,6 +17,7 @@ exports.getAllCustomers = async function (req, res) {
       customers,
     });
   } catch (error) {
+    console.log(error);
     res.status(500).json({
       success: false,
       message: error,
@@ -109,7 +110,7 @@ exports.createCustomer = async function (req, res) {
 
 exports.updateCustomer = async function (req, res) {
   try {
-    const { name, phone,branchId } = req.body;
+    const { name, phone, branchId } = req.body;
 
     let customer = await mydb.getall(
       `select * from customers where id=${parseInt(req.params.id)}`

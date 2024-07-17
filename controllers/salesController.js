@@ -28,42 +28,36 @@ GROUP BY s.id
 };
 
 exports.getSale = async function (req, res) {
+  let { salesId } = req.body;
+
   try {
-    let purchase = await mydb.getrow(
-      `select p.id,p.purchaseNo,p.vendor_id,p.discount,p.purchase_date,p.discount_account,
-      p.paid_account,v.name,a.accountName discountAccountName,
-      a2.accountName paidAccountName from purchases p 
-      left join vendors v on p.vendor_id = v.id
-      LEFT JOIN accounts a on p.discount_account = a.id
-      LEFT JOIN accounts a2 on p.paid_account = a2.id
-      where p.id=${parseInt(req.params.id)}`
+    let sale = await mydb.getrow(
+      `select s.id,s.salesNo,s.discount,s.sales_date,s.subtotal,s.total,
+      c.name,c.phone from sales s 
+      left join customers c on s.customer_id = c.id
+      where s.id=${parseInt(salesId)} and s.status='${
+        TRANSACTION_STATUS.LATEST
+      }'`
     );
 
-    let purchaseDetails = await mydb.getall(
-      `SELECT pu.product_id,p.name,pu.qty,pu.price FROM purchase_details pu
-      LEFT JOIN products p on pu.product_id = p.id where purchase_id=${parseInt(
-        req.params.id
-      )} and pu.status='${TRANSACTION_STATUS.LATEST}'`
+    let salesDetails = await mydb.getall(
+      `SELECT sd.product_name,sd.qty,sd.price FROM sales_details sd
+      LEFT JOIN products p on sd.product_id = p.id where sd.sales_id=${parseInt(
+        salesId
+      )} and sd.status='${TRANSACTION_STATUS.LATEST}'`
     );
 
     let paid = await mydb.getrow(
-      `select sum(amount) amount from purchase_payments
-        where purchase_id=${parseInt(req.params.id)}`
+      `select sum(amount) amount from sales_payment
+        where sales_id=${parseInt(salesId)} and status='${
+        TRANSACTION_STATUS.LATEST
+      }'`
     );
 
     res.json({
       success: true,
-      transactionId: purchase.transaction_id,
-      purchaseNo: purchase.purchaseNo,
-      purchaseDate: purchase.purchase_date,
-      vendorId: purchase.vendor_id,
-      vendorName: purchase.name,
-      discountAccountId: purchase.discount_account,
-      discountAccountName: purchase.discountAccountName,
-      paidAccountId: purchase.paid_account,
-      paidAccountName: purchase.paidAccountName,
-      discount: purchase.discount,
-      rows: purchaseDetails,
+      sale,
+      details: salesDetails,
       paid: paid.amount,
     });
   } catch (error) {
@@ -633,9 +627,9 @@ exports.createSaleReturn = async function (req, res) {
         await tx.insert(
           `insert into sales_return_details values(null,${saleReturn},${parseInt(
             item.productId
-          )},'${item.selectedProduct.label}',${parseInt(
-            branchId
-          )},${parseInt(item.qty)},${parseFloat(item.price)},'${
+          )},'${item.selectedProduct.label}',${parseInt(branchId)},${parseInt(
+            item.qty
+          )},${parseFloat(item.price)},'${
             TRANSACTION_STATUS.LATEST
           }',now(),now())`
         );
@@ -759,6 +753,48 @@ exports.getAllSalesReturns = async function (req, res) {
       returns,
     });
   } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error,
+    });
+  }
+};
+
+exports.getSalesReturnById = async function (req, res) {
+  let { returnId } = req.body;
+
+  try {
+    let saleReturn = await mydb.getrow(
+      `select s.id,s.return_date,s.total,
+      c.name,c.phone from sales_return s 
+      left join customers c on s.customer_id = c.id
+      where s.id=${parseInt(returnId)} and s.status='${
+        TRANSACTION_STATUS.LATEST
+      }'`
+    );
+
+    let saleReturnDetails = await mydb.getall(
+      `SELECT sd.product_name,sd.qty,sd.price FROM sales_return_details sd
+      LEFT JOIN products p on sd.product_id = p.id where sd.return_id=${parseInt(
+        returnId
+      )} and sd.status='${TRANSACTION_STATUS.LATEST}'`
+    );
+
+    let paid = await mydb.getrow(
+      `select sum(amount) amount from sales_return_payment
+        where return_id=${parseInt(returnId)} and status='${
+        TRANSACTION_STATUS.LATEST
+      }'`
+    );
+
+    res.json({
+      success: true,
+      saleReturn,
+      details: saleReturnDetails,
+      paid: paid.amount,
+    });
+  } catch (error) {
+    console.log(error);
     res.status(500).json({
       success: false,
       message: error,

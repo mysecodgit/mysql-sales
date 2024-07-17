@@ -11,18 +11,19 @@ const {
   createSaleReturn,
   getAllSalesReturns,
   getCustomerSalesReturns,
-  cancelSalesReturn,
+  cancelSalesReturn,getSalesReturnById
 } = require("../controllers/salesController.js");
 
 const router = express.Router();
 
 router.get("/returns", getAllSalesReturns);
+router.post("/get_sales_return_by_id", getSalesReturnById);
 router.post("/cancel_sale", cancelSale);
 router.post("/cancel_sales_return", cancelSalesReturn);
 router.get("/:customerId", getCustomerSales);
 router.get("/:customerId/returns", getCustomerSalesReturns);
 router.get("/:salesId/remaining", getRemainingBalace);
-router.get("/:id", getSale);
+router.post("/get_sales_by_id", getSale);
 router.get("/", getAllSales);
 router.post("/create_sales_return", createSaleReturn);
 router.post("/", createSale);

@@ -46,14 +46,49 @@ exports.getSystemMenu = async function (req, res) {
 
 exports.createSystemMenu = async function (req, res) {
   try {
-    const { title, url, isActive } = req.body;
+    const { title, url, isActive, subMenuRows } = req.body;
 
-    await mydb.insert(
-      `insert into system_menu values(null,'${title}','${url}','${isActive}',1)`
-    );
-    res.json({
-      success: true,
-      message: "Successfully created.",
+    await mydb.transaction(async (tx) => {
+      const menu = await tx.insert(
+        `insert into system_menu values(null,'${title}','${url}','${isActive}',1)`
+      );
+
+      for (let row of subMenuRows) {
+        const subMenu = await tx.insert(
+          `insert into system_submenu values(null,'${row.subMenuTitle}','${
+            row.subMenuUrl
+          }',${parseInt(menu)},'${row.isSubMenuActive}',1)`
+        );
+
+        await tx.insert(
+          `insert into system_actions values(null,'view',${parseInt(
+            subMenu
+          )},'1')`
+        );
+
+        await tx.insert(
+          `insert into system_actions values(null,'create',${parseInt(
+            subMenu
+          )},'1')`
+        );
+
+        await tx.insert(
+          `insert into system_actions values(null,'edit',${parseInt(
+            subMenu
+          )},'1')`
+        );
+
+        await tx.insert(
+          `insert into system_actions values(null,'delete',${parseInt(
+            subMenu
+          )},'1')`
+        );
+      }
+
+      res.json({
+        success: true,
+        message: "Successfully created.",
+      });
     });
   } catch (error) {
     console.log(error);
@@ -66,8 +101,7 @@ exports.createSystemMenu = async function (req, res) {
 
 exports.updateSystemMenu = async function (req, res) {
   try {
-    const {title, url, isActive } =
-      req.body;
+    const { title, url, isActive } = req.body;
 
     let menu = await mydb.getall(
       `select * from system_menu where id='${parseInt(req.params.id)}'`
@@ -77,9 +111,7 @@ exports.updateSystemMenu = async function (req, res) {
 
     await mydb.update(
       `update system_menu set title='${title}',
-      url='${url}',isActive='${isActive}' where id=${parseInt(
-        req.params.id
-      )}`
+      url='${url}',isActive='${isActive}' where id=${parseInt(req.params.id)}`
     );
 
     res.status(201).json({
@@ -98,10 +130,10 @@ exports.updateSystemMenu = async function (req, res) {
 exports.deleteSystemMenu = async function (req, res) {
   try {
     let menu = await mydb.getall(
-        `select * from system_menu where id='${parseInt(req.params.id)}'`
-      );
-      if (!menu.length)
-        return res.json({ success: false, message: "Menue Does not Exist" });
+      `select * from system_menu where id='${parseInt(req.params.id)}'`
+    );
+    if (!menu.length)
+      return res.json({ success: false, message: "Menue Does not Exist" });
 
     await mydb.delete(
       `DELETE FROM system_menu WHERE id=${parseInt(req.params.id)}`
