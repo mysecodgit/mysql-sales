@@ -25,6 +25,7 @@ const permissionRoutes = require("./routes/systemPermissionRoutes.js");
 const checksRoutes = require("./routes/checkRoutes.js");
 const adjustmentRoutes = require("./routes/adjustmentRoutes.js");
 const generalJournalRoutes = require("./routes/generalJournalRoutes.js");
+const reportRoutes = require("./routes/reportRoutes.js");
 
 const port = 5000;
 
@@ -50,3 +51,4 @@ app.use("/api/permissions", permissionRoutes);
 app.use("/api/checks", checksRoutes);
 app.use("/api/adjustments", adjustmentRoutes);
 app.use("/api/general_journals", generalJournalRoutes);
+app.use("/api/report", reportRoutes);

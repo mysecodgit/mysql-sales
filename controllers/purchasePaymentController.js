@@ -49,8 +49,16 @@ exports.getPurchasePayment = async function (req, res) {
 
 exports.createPurchasePayment = async function (req, res) {
   try {
-    let { userId, branchId, vendorId, purchaseId, paidAmount, accountId } =
-      req.body;
+    let {
+      userId,
+      branchId,
+      vendorId,
+      purchaseId,
+      paidAmount,
+      accountId,
+      discount,
+      discountAccountId,
+    } = req.body;
 
     await mydb.transaction(async (tx) => {
       const transaction = await tx.insert(
@@ -64,9 +72,13 @@ exports.createPurchasePayment = async function (req, res) {
       await tx.insert(
         `insert into purchase_payments values(null,${transaction},${purchaseId},${parseInt(
           vendorId
-        )},${parseInt(userId)},${parseInt(hqBranch.id)},${accountId},${parseFloat(
-          paidAmount
-        )},'${TRANSACTION_STATUS.LATEST}','',now(),now())`
+        )},${parseInt(userId)},${parseInt(
+          hqBranch.id
+        )},${accountId},${parseFloat(paidAmount)},${
+          discount ? parseFloat(discount) : 0
+        },${discountAccountId ? parseInt(discountAccountId) : null},'${
+          TRANSACTION_STATUS.LATEST
+        }','',now(),now())`
       );
 
       // create transaction
@@ -75,7 +87,9 @@ exports.createPurchasePayment = async function (req, res) {
           userId
         )},${parseInt(hqBranch.id)},${parseInt(
           DEFAULT_ACCOUNTS.ACCOUNT_PAYABLE
-        )},${parseFloat(paidAmount)},null,'${TRANSACTION_STATUS.LATEST}')`
+        )},${parseFloat(paidAmount) + (parseFloat(discount) || 0)},null,'${
+          TRANSACTION_STATUS.LATEST
+        }')`
       );
       await tx.insert(
         `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
@@ -84,6 +98,17 @@ exports.createPurchasePayment = async function (req, res) {
           paidAmount
         )},'${TRANSACTION_STATUS.LATEST}')`
       );
+
+      if (parseFloat(discount) > 0) {
+        await tx.insert(
+          `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
+            userId
+          )},${parseInt(hqBranch.id)},${parseInt(
+            discountAccountId
+          )},null,${parseFloat(discount)},'${TRANSACTION_STATUS.LATEST}')`
+        );
+      }
+
       res.status(201).json({
         success: true,
         message: "Payment created successfully.",
@@ -123,9 +148,9 @@ exports.updatePurchasePayment = async function (req, res) {
         where id=${payment.id}
         `);
 
-        const hqBranch = await tx.getrow(
-          'select * from branches where type="hq"'
-        );
+      const hqBranch = await tx.getrow(
+        'select * from branches where type="hq"'
+      );
 
       await tx.insert(
         `insert into purchase_payments values(null,${
@@ -225,9 +250,11 @@ exports.createPurchaseReturnPayment = async function (req, res) {
       await tx.insert(
         `insert into purchase_return_payment values(null,${transaction},${returnId},${parseInt(
           vendorId
-        )},${parseInt(userId)},${parseInt(hqBranch.id)},${accountId},${parseFloat(
-          paidAmount
-        )},'${TRANSACTION_STATUS.LATEST}','',now(),now())`
+        )},${parseInt(userId)},${parseInt(
+          hqBranch.id
+        )},${accountId},${parseFloat(paidAmount)},'${
+          TRANSACTION_STATUS.LATEST
+        }','',now(),now())`
       );
 
       // create transaction
@@ -304,9 +331,7 @@ exports.updatePurchaseReturnPayment = async function (req, res) {
         'select * from branches where type="hq"'
       );
 
-      await tx.update(`update transaction_detials set status='${
-        TRANSACTION_STATUS.PRIOR
-      }'
+      await tx.update(`update transaction_detials set status='${TRANSACTION_STATUS.PRIOR}'
         where transaction_id=${payment.transaction_id}`);
 
       await tx.update(`

@@ -21,7 +21,7 @@ function generateAccessToken(user, menues) {
   };
 
   const options = {
-    expiresIn: "15m", // Set the expiration time for the access token
+    expiresIn: "1m", // Set the expiration time for the access token
     algorithm: "HS256", // Use the appropriate algorithm for signing the token
   };
 
@@ -45,17 +45,18 @@ const verifyToken = async (req, res, next) => {
       return res.status(401).json({ error: "No token provided" });
     }
 
+    console.log("Token :: ", token);
+
     // if token has "" it causes error
     // Verify the access token
-    const decoded = jwt.verify(
-      JSON.parse(token),
-      process.env.ACCESS_TOKEN_SECRET
-    );
+    const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
 
     // Find the user in the database based on the decoded user ID
     const user = await mydb.getrow(
       `select * from users where id=${decoded.user.id}`
     );
+
+    console.log("User :: ", user);
 
     if (!user) {
       // If the user is not found, the token is invalid
@@ -68,7 +69,8 @@ const verifyToken = async (req, res, next) => {
     // Call the next middleware function
     next();
   } catch (error) {
-    console.log(error == "TokenExpiredError");
+    console.log(error);
+    console.log(error.name == "TokenExpiredError");
     // If the token is invalid or has expired, return a 401 Unauthorized error
     res.status(401).json({ error: "Invalid token" });
   }

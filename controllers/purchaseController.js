@@ -9,7 +9,7 @@ const {
 exports.getAllPurchases = async function (req, res) {
   try {
     let purchases = await mydb.getall(`
-    SELECT p.id,p.purchaseNo,p.purchase_date,p.status,v.name,p.subtotal,p.discount,p.total,SUM(py.amount) paid FROM purchases p 
+    SELECT p.id,p.purchaseNo,p.purchase_date,p.status,v.name,p.subtotal,SUM(py.amount) paid FROM purchases p 
 LEFT JOIN vendors v on p.vendor_id = v.id
 LEFT JOIN purchase_payments py ON py.purchase_id = p.id and py.status = 'Latest'
 WHERE p.status = '${TRANSACTION_STATUS.LATEST}'
@@ -20,6 +20,7 @@ GROUP BY p.id
       purchases,
     });
   } catch (error) {
+    console.log(error);
     res.status(500).json({
       success: false,
       message: error,
@@ -30,12 +31,9 @@ GROUP BY p.id
 exports.getPurchase = async function (req, res) {
   try {
     let purchase = await mydb.getrow(
-      `select p.id,p.purchaseNo,p.vendor_id,p.discount,p.purchase_date,p.discount_account,
-      p.paid_account,v.name,a.accountName discountAccountName,
-      a2.accountName paidAccountName from purchases p 
+      `select p.id,p.purchaseNo,p.vendor_id,p.purchase_date,
+      v.name from purchases p 
       left join vendors v on p.vendor_id = v.id
-      LEFT JOIN accounts a on p.discount_account = a.id
-      LEFT JOIN accounts a2 on p.paid_account = a2.id
       where p.id=${parseInt(req.params.id)}`
     );
 
@@ -82,8 +80,8 @@ exports.createPurchase = async function (req, res) {
       userId,
       vendorId,
       purchaseDate,
-      selectedIncomeAccount,
-      setlectedBankAccount,
+      // selectedIncomeAccount,
+      // setlectedBankAccount,
       items,
       subTotal,
       discount,
@@ -100,11 +98,7 @@ exports.createPurchase = async function (req, res) {
       const purchase = await tx.insert(
         `insert into purchases values(null,'${purchaseNo}',${transaction},'${purchaseDate}',${parseInt(
           vendorId
-        )},${parseInt(
-          userId
-        )},${selectedIncomeAccount},${setlectedBankAccount},${parseFloat(
-          subTotal
-        )},${parseFloat(discount)},${parseFloat(total)},'${
+        )},${parseInt(userId)},${parseFloat(subTotal)},'${
           TRANSACTION_STATUS.LATEST
         }','no memo')`
       );
@@ -164,56 +158,6 @@ exports.createPurchase = async function (req, res) {
           )},${parseInt(item.branchId)},${
             DEFAULT_ACCOUNTS.ACCOUNT_PAYABLE
           },null,${parseFloat(item.total)},'${TRANSACTION_STATUS.LATEST}')`
-        );
-      }
-
-      if (discount > 0) {
-        await tx.insert(
-          `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
-            userId
-          )},${parseInt(hqBranch.id)},${parseInt(
-            DEFAULT_ACCOUNTS.ACCOUNT_PAYABLE
-          )},${parseFloat(discount)},null,'${TRANSACTION_STATUS.LATEST}')`
-        );
-        await tx.insert(
-          `insert into transaction_detials values(null,now(),now(),${transaction},${parseInt(
-            userId
-          )},${parseInt(hqBranch.id)},${parseInt(
-            selectedIncomeAccount
-          )},null,${parseFloat(discount)},'${TRANSACTION_STATUS.LATEST}')`
-        );
-      }
-
-      if (parseFloat(paid) > 0) {
-        // create purchase payment
-        const paymentTransaction = await tx.insert(
-          `insert into transaction values(null,'${TRANSACTION_TYPES.PURCHASE_PAYMENT}','',now(),now())`
-        );
-
-        await tx.insert(
-          `insert into purchase_payments values(null,${paymentTransaction},${purchase},${parseInt(
-            vendorId
-          )},${parseInt(userId)},${parseInt(
-            hqBranch.id
-          )},${setlectedBankAccount},${parseFloat(paid)},'${
-            TRANSACTION_STATUS.LATEST
-          }','memory',now(),now())`
-        );
-
-        // create transaction
-        await tx.insert(
-          `insert into transaction_detials values(null,now(),now(),${paymentTransaction},${parseInt(
-            userId
-          )},${parseInt(hqBranch.id)},${parseInt(
-            DEFAULT_ACCOUNTS.ACCOUNT_PAYABLE
-          )},${parseFloat(paid)},null,'${TRANSACTION_STATUS.LATEST}')`
-        );
-        await tx.insert(
-          `insert into transaction_detials values(null,now(),now(),${paymentTransaction},${parseInt(
-            userId
-          )},${parseInt(hqBranch.id)},${parseInt(
-            setlectedBankAccount
-          )},null,${parseFloat(paid)},'${TRANSACTION_STATUS.LATEST}')`
         );
       }
     });
@@ -336,8 +280,8 @@ exports.updatePurchase = async function (req, res) {
       purchaseNo,
       vendorId,
       purchaseDate,
-      selectedIncomeAccount,
-      setlectedBankAccount,
+      // selectedIncomeAccount,
+      // setlectedBankAccount,
       items,
       subTotal,
       discount,
@@ -444,62 +388,6 @@ exports.updatePurchase = async function (req, res) {
           )},'${TRANSACTION_STATUS.LATEST}')`
         );
       });
-
-      if (discount > 0) {
-        await tx.insert(
-          `insert into transaction_detials values(null,now(),now(),${
-            purchase.transaction_id
-          },"hudeifa",${parseInt(
-            DEFAULT_ACCOUNTS.ACCOUNT_PAYABLE
-          )},${parseFloat(discount)},null,'${TRANSACTION_STATUS.LATEST}')`
-        );
-        await tx.insert(
-          `insert into transaction_detials values(null,now(),now(),${
-            purchase.transaction_id
-          },"hudeifa",${parseInt(selectedIncomeAccount)},null,${parseFloat(
-            discount
-          )},'${TRANSACTION_STATUS.LATEST}')`
-        );
-      }
-
-      if (parseFloat(paid) > 0) {
-        const transaction = await tx.insert(
-          `insert into transaction values(null,'${TRANSACTION_TYPES.PAYMENT_ADJUSTMENT}','',now(),now())`
-        );
-
-        let totalPayments = await mydb.getrow(
-          `select sum(amount) amount from purchase_payments
-              where purchase_id=${purchase.id}`
-        );
-
-        if (totalPayments.amount != paid) {
-          const adjustmentAmount = paid - totalPayments.amount;
-
-          await tx.insert(
-            `insert into purchase_payments values(null,${transaction},${
-              purchase.id
-            },${parseInt(vendorId)},'hudeifa',${parseFloat(
-              adjustmentAmount
-            )},'purchase edit adjustment',now(),now())`
-          );
-
-          // create transaction
-          await tx.insert(
-            `insert into transaction_detials values(null,now(),now(),${transaction},"hudeifa",${parseInt(
-              DEFAULT_ACCOUNTS.ACCOUNT_PAYABLE
-            )},${parseFloat(adjustmentAmount)},null,'${
-              TRANSACTION_STATUS.LATEST
-            }')`
-          );
-          await tx.insert(
-            `insert into transaction_detials values(null,now(),now(),${transaction},"hudeifa",${parseInt(
-              setlectedBankAccount
-            )},null,${parseFloat(adjustmentAmount)},'${
-              TRANSACTION_STATUS.LATEST
-            }')`
-          );
-        }
-      }
     });
 
     res.status(201).json({
@@ -551,7 +439,7 @@ exports.deletePurchase = async function (req, res) {
 exports.getVendorPurchases = async function (req, res) {
   try {
     let invoices = await mydb.getall(`
-        SELECT p.id,p.purchaseNo,p.total,SUM(IFNULL(py.amount,0)) paid, (p.total - SUM(IFNULL(py.amount,0))) balance FROM purchases p 
+        SELECT p.id,p.purchaseNo,p.subtotal,SUM(IFNULL(py.amount,0)) paid, (p.subtotal - SUM(IFNULL(py.amount,0))) balance FROM purchases p 
         LEFT JOIN vendors v on p.vendor_id = v.id
         LEFT JOIN purchase_payments py ON py.purchase_id = p.id 
         WHERE p.vendor_id = ${parseInt(req.params.vendorId)}
@@ -562,6 +450,7 @@ exports.getVendorPurchases = async function (req, res) {
       invoices,
     });
   } catch (error) {
+    console.log(error);
     res.status(500).json({
       success: false,
       message: error,

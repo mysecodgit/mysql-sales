@@ -17,7 +17,7 @@ const router = express.Router();
 
 router.post("/login", login);
 router.post("/refresh-accessToken", refreshAccessToken);
-router.get("/",verifyToken, getAllUsers);
+router.get("/", verifyToken, getAllUsers);
 router.post("/", createUser);
 router.post("/update_user", updateUser);
 router.post("/delete", deleteUser);

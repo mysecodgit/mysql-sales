@@ -140,6 +140,16 @@ exports.login = async function (req, res) {
   try {
     let { username, password } = req.body;
 
+    let punishMinutes = 1;
+
+    let currentDateTime = new Date();
+    let tenMinutesBefore = new Date(
+      currentDateTime.getTime() - punishMinutes * 60 * 1000
+    );
+
+    const formattedCurrent = formatDate(currentDateTime);
+    const formattedTenBefor = formatDate(tenMinutesBefore);
+
     let user = await mydb.getrow(
       `select * from users where username='${username}'`
     );
@@ -150,13 +160,67 @@ exports.login = async function (req, res) {
         message: "user name does not exist",
       });
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-
-    if (!isPasswordValid)
+    if (user.status == "blocked") {
       return res.json({
         success: false,
+        message: `this user is blocked by admin`,
+      });
+    }
+
+    let attemptCounts = await mydb.getrow(
+      `select count(user_id) counts from login_attempts where 
+        user_id=${user.id} and
+        time between '${formattedTenBefor}' and '${formattedCurrent}'`
+    );
+
+    let lastAttempt = await mydb.getrow(`
+      select * from login_attempts where user_id=${user.id} ORDER BY time DESC LIMIT 1
+       `);
+
+    const lastLoginDate = new Date(lastAttempt.time);
+    let tenMinutesAfter = new Date(
+      lastLoginDate.getTime() + punishMinutes * 60 * 1000
+    );
+    let formattedTenMinutesAfter = formatDate(tenMinutesAfter);
+
+    if (attemptCounts.counts > 2) {
+      await mydb.update(`
+        update users set status='retained' where id=${user.id}
+       `);
+
+      return res.json({
+        success: false,
+        message: `user blocked untill ${formattedTenMinutesAfter}`,
+      });
+    }
+
+    if (user.status == "retained" && new Date() > tenMinutesAfter) {
+      await mydb.update(`
+        update users set status='active' where id=${user.id}
+       `);
+    }
+
+    user = await mydb.getrow(
+      `select * from users where username='${username}'`
+    );
+
+    if (user.status == "retained") {
+      return res.json({
+        success: false,
+        message: `user blocked untill ${formattedTenMinutesAfter}`,
+      });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      await mydb.insert(`insert into login_attempts values(${user.id},now())`);
+      return res.json({
+        success: false,
+        counts: attemptCounts.counts,
         message: "password is wrong.",
       });
+    }
 
     let userMenues = await mydb.getall(`
     SELECT* FROM user_menues um
@@ -281,4 +345,15 @@ WHERE um.user_id = ${user.id} AND sm.isActive = true
       message: error,
     });
   }
+};
+
+const formatDate = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  const formattedDateTime = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  return formattedDateTime;
 };

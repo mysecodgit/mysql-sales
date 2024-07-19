@@ -24,11 +24,38 @@ exports.createSystemSubMenu = async function (req, res) {
   try {
     const { title, url, menu_id, isActive } = req.body;
 
-    await mydb.insert(
-      `insert into system_submenu values(null,'${title}','${url}',${parseInt(
-        menu_id
-      )},'${isActive}',1)`
-    );
+    await mydb.transaction(async (tx) => {
+      const subMenu = await tx.insert(
+        `insert into system_submenu values(null,'${title}','${url}',${parseInt(
+          menu_id
+        )},'${isActive}',1)`
+      );
+
+      await tx.insert(
+        `insert into system_actions values(null,'view',${parseInt(
+          subMenu
+        )},'1')`
+      );
+
+      await tx.insert(
+        `insert into system_actions values(null,'create',${parseInt(
+          subMenu
+        )},'1')`
+      );
+
+      await tx.insert(
+        `insert into system_actions values(null,'edit',${parseInt(
+          subMenu
+        )},'1')`
+      );
+
+      await tx.insert(
+        `insert into system_actions values(null,'delete',${parseInt(
+          subMenu
+        )},'1')`
+      );
+    });
+
     res.json({
       success: true,
       message: "Successfully created.",
