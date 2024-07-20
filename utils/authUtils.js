@@ -56,8 +56,6 @@ const verifyToken = async (req, res, next) => {
       `select * from users where id=${decoded.user.id}`
     );
 
-    console.log("User :: ", user);
-
     if (!user) {
       // If the user is not found, the token is invalid
       return res.status(401).json({ error: "Invalid token" });

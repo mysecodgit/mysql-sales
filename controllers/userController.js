@@ -177,7 +177,9 @@ exports.login = async function (req, res) {
       select * from login_attempts where user_id=${user.id} ORDER BY time DESC LIMIT 1
        `);
 
-    const lastLoginDate = new Date(lastAttempt.time);
+    const lastLoginDate = lastAttempt?.time
+      ? new Date(lastAttempt.time)
+      : new Date();
     let tenMinutesAfter = new Date(
       lastLoginDate.getTime() + punishMinutes * 60 * 1000
     );
