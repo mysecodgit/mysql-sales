@@ -3,7 +3,7 @@ const mydb = require("../config/database.js");
 exports.getSystemPermissions = async function (req, res) {
   try {
     let systemMenues = await mydb.getall(`
-    SELECT id,title FROM system_menu
+    SELECT id,title,isActive FROM system_menu where isActive=1
     `);
     let subMenues = await mydb.getall(
       `SELECT id,title,menu_id FROM system_submenu `
